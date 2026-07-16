@@ -50,4 +50,21 @@ describe('processCSVData', () => {
     expect(staff.KAT.topLenses.length).toBe(5)
     expect(staff.KAT.topLenses[0]).toEqual({ name: '1.67 A', count: 2 })
   })
+
+  it('negative AMOUNT on a non-void row adds as-is, not abs (contrast with void which uses Math.abs)', () => {
+    const { summary, staff } = processCSVData([{ 'TYPE': 'SALE', 'AMOUNT': '-200', 'SALE': 'X' }])
+    expect(summary.revenue).toBe(-200)
+    expect(staff.X.r).toBe(-200)
+    expect(summary.salesCount).toBe(1)
+    expect(summary.voidCount).toBe(0)
+  })
+
+  it('two top-up products in one row: single top-up credit (is_tu break) but each matching lens counted (independent loop)', () => {
+    const { summary, staff } = processCSVData([{ 'TYPE': 'SALE', 'AMOUNT': '1', 'SALE': 'Y', 'PRODUCT DETAILS': '1.67 ASP, GOLD COAT, FRAME Z' }])
+    expect(summary.topupCount).toBe(1)
+    expect(staff.Y.t).toBe(1)
+    expect(staff.Y.topLenses).toContainEqual({ name: '1.67 ASP', count: 1 })
+    expect(staff.Y.topLenses).toContainEqual({ name: 'GOLD COAT', count: 1 })
+    expect(staff.Y.topLenses.map(l => l.name)).not.toContain('FRAME Z')
+  })
 })

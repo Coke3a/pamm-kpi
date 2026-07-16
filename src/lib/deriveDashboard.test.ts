@@ -48,4 +48,38 @@ describe('deriveDashboard', () => {
     expect(truncateText('short', 28)).toBe('short')
     expect(truncateText('x'.repeat(30), 28)).toBe('x'.repeat(28) + '...')
   })
+
+  it('includes a staff member via v>0 alone, even with r=0 and e=0', () => {
+    const d = deriveDashboard(mk({ staff: { ZED: s({ r: 0, e: 0, v: 1 }) } }))
+    expect(d.cards.map(c => c.name)).toContain('ZED')
+  })
+
+  it('highestSale requires r>0 even at index 0', () => {
+    const d = deriveDashboard(mk({ staff: { ZED: s({ r: 0, e: 1 }) } }))
+    expect(d.cards[0].badges.highestSale).toBe(false)
+  })
+
+  it('topUpMaster: a tie at the max top-up rate awards the badge to both staff', () => {
+    const d = deriveDashboard(mk({ staff: {
+      ANNA: s({ r: 200, s: 4, t: 2 }), // tr = 50
+      BOB: s({ r: 100, s: 2, t: 1 }),  // tr = 50
+    }}))
+    const anna = d.cards.find(c => c.name === 'ANNA')!
+    const bob = d.cards.find(c => c.name === 'BOB')!
+    expect(anna.badges.topUpMaster).toBe(true)
+    expect(bob.badges.topUpMaster).toBe(true)
+  })
+
+  it('topUpMaster: zero-guard blocks the badge when every staff has t=0 (maxTopUpRate=0)', () => {
+    const d = deriveDashboard(mk({ staff: {
+      ANNA: s({ r: 200, s: 4, t: 0 }),
+      BOB: s({ r: 100, s: 2, t: 0 }),
+    }}))
+    expect(d.cards.every(c => !c.badges.topUpMaster)).toBe(true)
+  })
+
+  it('truncateText: length===max is not truncated; empty string returns empty', () => {
+    expect(truncateText('x'.repeat(28), 28)).toBe('x'.repeat(28))
+    expect(truncateText('', 28)).toBe('')
+  })
 })
