@@ -8,6 +8,7 @@ import LoadingScreen from './components/LoadingScreen'
 import SummaryCards from './components/SummaryCards'
 import SalesTopupChart, { type SalesTopupChartHandle } from './components/SalesTopupChart'
 import WorkloadChart, { type WorkloadChartHandle } from './components/WorkloadChart'
+import StaffCard from './components/StaffCard'
 
 type Status = 'empty' | 'loading' | 'ready'
 
@@ -120,7 +121,7 @@ function App() {
           ) : null}
         </div>
 
-        {status === 'ready' ? (
+        {status === 'ready' && dashboard ? (
           <div id="export-page-2" className="p-6 md:p-10 bg-[#0B0E14]">
             <div className="flex items-center gap-4 mb-8 px-2">
               <div className="h-8 w-1.5 bg-[#3B82F6] rounded-full shadow-[0_0_10px_#3B82F6]"></div>
@@ -128,6 +129,9 @@ function App() {
             </div>
 
             <div id="staffCardsContainer" className="grid-staff grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8">
+              {dashboard.cards.map(card => (
+                <StaffCard key={card.name} staff={card} />
+              ))}
             </div>
           </div>
         ) : null}
