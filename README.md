@@ -17,7 +17,7 @@ CSV computation logic and PDF export layout.
 - [Tailwind CSS v4](https://tailwindcss.com/) (`@tailwindcss/vite`)
 - [Chart.js](https://www.chartjs.org/) via `react-chartjs-2`
 - [PapaParse](https://www.papaparse.com/) for CSV parsing
-- [jsPDF](https://github.com/parallax/jsPDF) + [html2canvas](https://github.com/niklasvh/html2canvas) for PDF export
+- [jsPDF](https://github.com/parallax/jsPDF) + [html2canvas-pro](https://github.com/yorickshan/html2canvas-pro) for PDF export
 - [Vitest](https://vitest.dev/) + Testing Library for unit tests
 - Deployed as static assets on [Cloudflare Workers](https://developers.cloudflare.com/workers/static-assets/)
 
