@@ -1,5 +1,5 @@
 import type { LensCount, ProcessedData, StaffStat, Summary } from './types'
-import { TOPUP_KEYWORDS, WARRANTY_REGEX, WORKLOAD_ROLES } from './constants'
+import { TOPUP_KEYWORDS, UNASSIGNED_SALE, UNASSIGNED_SENTINELS, WARRANTY_REGEX, WORKLOAD_ROLES } from './constants'
 
 // 1:1 port of processCSVData from reference/original-dashboard.html (lines 228-301).
 // See docs/superpowers/specs/2026-07-16-pamm-kpi-react-port-design.md §6 for the
@@ -22,6 +22,10 @@ export function processCSVData(data: Record<string, string>[]): ProcessedData {
 
     let saleName = row['SALE'] ? row['SALE'].trim().toUpperCase() : ''
     if (saleName === '') saleName = 'SUPPORT'
+    // INTENTIONAL DEVIATION (see constants.ts): the original leaves '-'/'N/A'
+    // here and then crashes on `staff[saleName]`. Route them to a visible
+    // 'UNASSIGNED' bucket instead. Files without these sentinels are unaffected.
+    else if (UNASSIGNED_SENTINELS.includes(saleName)) saleName = UNASSIGNED_SALE
 
     initStaff(saleName)
 

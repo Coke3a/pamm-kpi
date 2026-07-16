@@ -67,4 +67,39 @@ describe('processCSVData', () => {
     expect(staff.Y.topLenses).toContainEqual({ name: 'GOLD COAT', count: 1 })
     expect(staff.Y.topLenses.map(l => l.name)).not.toContain('FRAME Z')
   })
+
+  // --- INTENTIONAL DEVIATION from the original (real-data fix, see constants.ts).
+  // The original crashes on a non-void row whose SALE is a '-'/'N/A' "no
+  // salesperson" sentinel; we route those into a dedicated UNASSIGNED bucket.
+  it("routes SALE '-'/'N/A' sentinels into an UNASSIGNED bucket instead of crashing", () => {
+    const { summary, staff } = processCSVData([
+      { 'TYPE': 'SALE', 'AMOUNT': '1000', 'SALE': '-', 'PRODUCT DETAILS': '1.67 ASP' },
+      { 'TYPE': 'SALE', 'AMOUNT': '500', 'SALE': 'N/A', 'PRODUCT DETAILS': 'FRAME' },
+      { 'TYPE': 'SALE', 'AMOUNT': '250', 'SALE': ' - ', 'PRODUCT DETAILS': 'CASE' }, // trims to '-'
+    ])
+    expect(staff.UNASSIGNED.r).toBe(1750)
+    expect(staff.UNASSIGNED.s).toBe(3)
+    expect(staff.UNASSIGNED.t).toBe(1) // only the 1.67 row is a top-up
+    expect(staff['-']).toBeUndefined()
+    expect(staff['N/A']).toBeUndefined()
+    expect(summary.revenue).toBe(1750)
+    expect(summary.salesCount).toBe(3)
+  })
+
+  it("keeps blank SALE -> SUPPORT while '-'/'N/A' -> UNASSIGNED (separate buckets)", () => {
+    const { staff } = processCSVData([
+      { 'TYPE': 'SALE', 'AMOUNT': '100', 'SALE': '' },
+      { 'TYPE': 'SALE', 'AMOUNT': '200', 'SALE': '-' },
+    ])
+    expect(staff.SUPPORT.r).toBe(100)
+    expect(staff.UNASSIGNED.r).toBe(200)
+  })
+
+  it("VOID row with SALE '-' credits the UNASSIGNED void count (also crashed pre-fix)", () => {
+    const { summary, staff } = processCSVData([{ 'TYPE': 'VOID', 'AMOUNT': '-300', 'SALE': '-' }])
+    expect(summary.voidCount).toBe(1)
+    expect(summary.voidAmt).toBe(300)
+    expect(staff.UNASSIGNED.v).toBe(1)
+    expect(staff.UNASSIGNED.r).toBe(0)
+  })
 })
