@@ -1,4 +1,4 @@
-import { useMemo, useState, type ChangeEvent } from 'react'
+import { useMemo, useRef, useState, type ChangeEvent } from 'react'
 import Papa from 'papaparse'
 import { processCSVData } from './lib/processCsv'
 import { deriveDashboard } from './lib/deriveDashboard'
@@ -6,6 +6,8 @@ import type { ProcessedData } from './lib/types'
 import EmptyState from './components/EmptyState'
 import LoadingScreen from './components/LoadingScreen'
 import SummaryCards from './components/SummaryCards'
+import SalesTopupChart, { type SalesTopupChartHandle } from './components/SalesTopupChart'
+import WorkloadChart, { type WorkloadChartHandle } from './components/WorkloadChart'
 
 type Status = 'empty' | 'loading' | 'ready'
 
@@ -13,6 +15,13 @@ function App() {
   const [data, setData] = useState<ProcessedData | null>(null)
   const [status, setStatus] = useState<Status>('empty')
   const [storeTitle, setStoreTitle] = useState('Store Performance Insight')
+
+  // Chart.js instance refs — react-chartjs-2 forwards the real Chart.js
+  // instance (not a wrapper), so `.current` will expose `toBase64Image()`
+  // and `.resize()` once the charts mount. Consumed by the PDF export flow
+  // (Task 7); unused otherwise in this task.
+  const mixedChartRef = useRef<SalesTopupChartHandle | null>(null)
+  const workloadChartRef = useRef<WorkloadChartHandle | null>(null)
 
   // Memoized so re-renders triggered by state unrelated to `data` don't
   // re-run the O(staff) derivation (SPEC §7/§11 "deferred-memoization intent").
@@ -96,11 +105,15 @@ function App() {
               <div className="grid-charts grid grid-cols-1 gap-8">
                 <div className="bg-[#12141A] border border-[#232630] rounded-2xl p-6 flex flex-col h-[400px]">
                   <h2 className="text-[11px] font-bold text-gray-400 tracking-widest mb-6 uppercase">Sales & Top-Up Analysis</h2>
-                  <div id="mixedChartContainer" className="relative w-full flex-grow"><canvas id="mixedChart"></canvas></div>
+                  <div id="mixedChartContainer" className="relative w-full flex-grow">
+                    <SalesTopupChart ref={mixedChartRef} sortedNames={dashboard.sortedNames} staff={dashboard.staff} />
+                  </div>
                 </div>
                 <div className="bg-[#12141A] border border-[#232630] rounded-2xl p-6 flex flex-col h-[400px]">
                   <h2 className="text-[11px] font-bold text-gray-400 tracking-widest mb-6 uppercase">Workload Distribution</h2>
-                  <div id="workloadChartContainer" className="relative w-full flex-grow"><canvas id="workloadBarChart"></canvas></div>
+                  <div id="workloadChartContainer" className="relative w-full flex-grow">
+                    <WorkloadChart ref={workloadChartRef} sortedNames={dashboard.sortedNames} staff={dashboard.staff} />
+                  </div>
                 </div>
               </div>
             </div>
