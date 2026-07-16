@@ -74,21 +74,33 @@ const SalesTopupChart = memo(
     { sortedNames, staff },
     ref,
   ) {
+    // INTENTIONAL DEVIATION from the original (user-requested visual fix): the
+    // "Sales & Top-Up Analysis" chart is about salespeople, so it plots only
+    // names that actually made a sale (`s > 0`). The original fed the whole
+    // `sortedNames` list here, which meant a workload-only staffer (no sales,
+    // e.g. a dispenser) drew an empty revenue bar AND forced its top-up rate to
+    // a meaningless 0%, sending the line diving to the x-axis. Colours are taken
+    // from each name's position in `sortedNames` so they stay in sync with the
+    // Workload chart and the staff cards (which still list every staffer).
+    const chartNames = sortedNames.filter((n) => staff[n].s > 0)
+
     const data = {
-      labels: sortedNames,
+      labels: chartNames,
       datasets: [
         {
           label: 'Net Sales (THB)',
-          data: sortedNames.map((n) => staff[n].r),
-          backgroundColor: sortedNames.map((_, i) => PALETTE[i % PALETTE.length]),
+          data: chartNames.map((n) => staff[n].r),
+          backgroundColor: chartNames.map((n) => PALETTE[sortedNames.indexOf(n) % PALETTE.length]),
           borderRadius: 6,
           yAxisID: 'y',
+          // Draw the bars BELOW the top-up line. In Chart.js a higher `order`
+          // is drawn first (further back); the tall revenue bars were otherwise
+          // painted over the line, hiding it (user-requested fix).
+          order: 2,
         },
         {
           label: 'Top-Up Rate (%)',
-          data: sortedNames.map((n) =>
-            staff[n].s > 0 ? (staff[n].t / staff[n].s * 100).toFixed(1) : 0,
-          ),
+          data: chartNames.map((n) => (staff[n].t / staff[n].s * 100).toFixed(1)),
           type: 'line' as const,
           borderColor: '#3B82F6',
           backgroundColor: '#3B82F6',
@@ -98,6 +110,8 @@ const SalesTopupChart = memo(
           pointBorderWidth: 2,
           pointRadius: 4,
           yAxisID: 'y1',
+          // Lower `order` -> drawn last -> the line sits ON TOP of the bars.
+          order: 1,
         },
       ],
     }

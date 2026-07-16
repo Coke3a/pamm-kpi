@@ -3,16 +3,24 @@
 
 export const TOPUP_KEYWORDS = ['EYESL','1.67','1.74','RX','EN-T','TS','PRE','COMPAL','MC2','COL1','MIRROR','PRES-T','SIGNATURE','ULTIMATE','GOLD'] as const
 
-// --- INTENTIONAL DEVIATION from the original (real-data fix) --------------
-// The original maps only a BLANK `SALE` to 'SUPPORT'; a non-void row whose
-// `SALE` is the "no salesperson" sentinel ('-' or 'N/A') falls through and
-// dereferences an uninitialised `staff[saleName]`, throwing and hanging the
-// whole upload on "Processing Data..." (real export files carry '-' here).
-// We bucket those rows into a dedicated, VISIBLE 'UNASSIGNED' card so the
-// revenue is still surfaced. Blank `SALE` -> 'SUPPORT' is left untouched, so
-// any file WITHOUT '-'/'N/A' in SALE still produces byte-identical output.
-export const UNASSIGNED_SALE = 'UNASSIGNED'
-export const UNASSIGNED_SENTINELS: readonly string[] = ['-', 'N/A']
+// --- INTENTIONAL DEVIATION from the original (real-data cleanup) ----------
+// Values that turn up in the name columns of REAL export files but are NOT a
+// trackable person. They must never become a staff card and must not be
+// counted as anyone's work. Compared AFTER `.trim().toUpperCase()`, so every
+// entry here is already in its uppercased form (Thai has no case):
+//   '-' / 'N/A'         the "no salesperson / no role" sentinel. A non-void
+//                       row with SALE '-' crashes the original on
+//                       `staff[saleName]`; here such a SALE folds into the
+//                       SUPPORT bucket, exactly like a BLANK SALE — the
+//                       revenue still counts in the store total, but no card
+//                       is shown (deriveDashboard filters SUPPORT out).
+//   'ซื้ออุปกรณ์เสริม'   "buy accessories": a transaction description that
+//                       leaks into the EYECHECK/EDGING/DISPENSING columns
+//                       (e.g. row 345004571). Skipped everywhere, so it is
+//                       never counted as staff.
+// A file WITHOUT any of these values produces byte-identical output to the
+// original — the differential fuzz in parity.test.ts still passes.
+export const EXCLUDED_NAMES: ReadonlySet<string> = new Set(['-', 'N/A', 'ซื้ออุปกรณ์เสริม'])
 export const PALETTE = ['#06B6D4','#10B981','#F59E0B','#8B5CF6','#EC4899','#3B82F6','#EAB308','#6366F1','#14B8A6','#84CC16','#F43F5E'] as const
 export const WORKLOAD_ROLES = ['EYECHECK','CASHIER','EDGING','DISPENSING'] as const
 // hoisted regexp (js-hoist-regexp); value copied verbatim from reference line 259

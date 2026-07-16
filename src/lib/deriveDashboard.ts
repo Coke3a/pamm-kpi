@@ -1,5 +1,5 @@
 import type { LensCount, ProcessedData, StaffStat } from './types'
-import { PALETTE, UNASSIGNED_SALE } from './constants'
+import { PALETTE } from './constants'
 
 export interface DerivedStaff {
   name: string
@@ -41,10 +41,6 @@ function roleFor(name: string): string {
   const checkName = name.toUpperCase()
   if (checkName === 'TROY') return 'Shop Manager'
   if (checkName === 'BUDDH' || checkName === 'BUDD') return 'Assistant Shop Manager'
-  // INTENTIONAL DEVIATION: the 'UNASSIGNED' bucket (SALE '-'/'N/A', see
-  // constants.ts) is not a person — label it plainly instead of "Senior Sales
-  // Staff", and it is excluded from the person-only badges below.
-  if (checkName === UNASSIGNED_SALE) return 'Unassigned Sales'
   return 'Senior Sales Staff'
 }
 
@@ -65,11 +61,8 @@ export function deriveDashboard(data: ProcessedData): Dashboard {
     .filter(k => (staff[k].r > 0 || staff[k].e > 0 || staff[k].v > 0) && k !== 'SUPPORT')
     .sort((a, b) => staff[b].r - staff[a].r)
 
-  // The 'UNASSIGNED' bucket is not a salesperson, so it does not set the
-  // baseline that the 💎 TOP UP MASTER award is measured against.
   let maxTopUpRate = 0
   sortedNames.forEach(name => {
-    if (name === UNASSIGNED_SALE) return
     const tr = topUpRate(staff[name])
     if (tr > maxTopUpRate) maxTopUpRate = tr
   })
@@ -84,10 +77,8 @@ export function deriveDashboard(data: ProcessedData): Dashboard {
       tr,
       role: roleFor(name),
       badges: {
-        // 👑 and 💎 are salesperson awards — never granted to 'UNASSIGNED'
-        // (its ⚠️ void count is still factual and stays).
-        highestSale: index === 0 && stat.r > 0 && name !== UNASSIGNED_SALE,
-        topUpMaster: tr === maxTopUpRate && tr > 0 && name !== UNASSIGNED_SALE,
+        highestSale: index === 0 && stat.r > 0,
+        topUpMaster: tr === maxTopUpRate && tr > 0,
         voids: stat.v,
       },
       topLenses: stat.topLenses,

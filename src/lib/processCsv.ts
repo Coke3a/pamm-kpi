@@ -1,5 +1,5 @@
 import type { LensCount, ProcessedData, StaffStat, Summary } from './types'
-import { TOPUP_KEYWORDS, UNASSIGNED_SALE, UNASSIGNED_SENTINELS, WARRANTY_REGEX, WORKLOAD_ROLES } from './constants'
+import { EXCLUDED_NAMES, TOPUP_KEYWORDS, WARRANTY_REGEX, WORKLOAD_ROLES } from './constants'
 
 // 1:1 port of processCSVData from reference/original-dashboard.html (lines 228-301).
 // See docs/superpowers/specs/2026-07-16-pamm-kpi-react-port-design.md §6 for the
@@ -9,7 +9,7 @@ export function processCSVData(data: Record<string, string>[]): ProcessedData {
   const staff: Record<string, StaffStat> = {}
 
   const initStaff = (name: string) => {
-    if (name && name !== '-' && name !== 'N/A' && !staff[name]) {
+    if (name && !EXCLUDED_NAMES.has(name) && !staff[name]) {
       staff[name] = { r: 0, s: 0, t: 0, v: 0, e: 0, c: 0, eg: 0, d: 0, lenses: {}, topLenses: [] }
     }
   }
@@ -21,11 +21,12 @@ export function processCSVData(data: Record<string, string>[]): ProcessedData {
     const isVoid = type === 'VOID'
 
     let saleName = row['SALE'] ? row['SALE'].trim().toUpperCase() : ''
-    if (saleName === '') saleName = 'SUPPORT'
-    // INTENTIONAL DEVIATION (see constants.ts): the original leaves '-'/'N/A'
-    // here and then crashes on `staff[saleName]`. Route them to a visible
-    // 'UNASSIGNED' bucket instead. Files without these sentinels are unaffected.
-    else if (UNASSIGNED_SENTINELS.includes(saleName)) saleName = UNASSIGNED_SALE
+    // A BLANK sale (original behaviour) and every non-staff sentinel
+    // ('-', 'N/A', 'ซื้ออุปกรณ์เสริม' — see EXCLUDED_NAMES) collapse to the
+    // SUPPORT bucket: the revenue still counts in the store total, but SUPPORT
+    // never gets a card. This replaces the original's crash on a '-'/'N/A' SALE
+    // (`staff[saleName]` was undefined) without inventing a visible card.
+    if (saleName === '' || EXCLUDED_NAMES.has(saleName)) saleName = 'SUPPORT'
 
     initStaff(saleName)
 
@@ -69,7 +70,7 @@ export function processCSVData(data: Record<string, string>[]): ProcessedData {
     if (!isVoid) {
       WORKLOAD_ROLES.forEach(role => {
         const name = row[role] ? row[role].trim().toUpperCase() : ''
-        if (name && name !== '-' && name !== 'N/A') {
+        if (name && !EXCLUDED_NAMES.has(name)) {
           initStaff(name)
           if (role === 'EYECHECK') staff[name].e++
           if (role === 'CASHIER') staff[name].c++

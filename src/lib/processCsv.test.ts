@@ -68,38 +68,62 @@ describe('processCSVData', () => {
     expect(staff.Y.topLenses.map(l => l.name)).not.toContain('FRAME Z')
   })
 
-  // --- INTENTIONAL DEVIATION from the original (real-data fix, see constants.ts).
-  // The original crashes on a non-void row whose SALE is a '-'/'N/A' "no
-  // salesperson" sentinel; we route those into a dedicated UNASSIGNED bucket.
-  it("routes SALE '-'/'N/A' sentinels into an UNASSIGNED bucket instead of crashing", () => {
+  // --- INTENTIONAL DEVIATION from the original (real-data cleanup, see
+  // constants.ts EXCLUDED_NAMES). A non-void row whose SALE is the '-'/'N/A'
+  // "no salesperson" sentinel crashes the original on `staff[saleName]`; we
+  // fold it into SUPPORT, exactly like a BLANK SALE — revenue still counts in
+  // the store total, but SUPPORT never gets a card. No UNASSIGNED bucket.
+  it("folds SALE '-'/'N/A' into SUPPORT instead of crashing (no UNASSIGNED bucket)", () => {
     const { summary, staff } = processCSVData([
       { 'TYPE': 'SALE', 'AMOUNT': '1000', 'SALE': '-', 'PRODUCT DETAILS': '1.67 ASP' },
       { 'TYPE': 'SALE', 'AMOUNT': '500', 'SALE': 'N/A', 'PRODUCT DETAILS': 'FRAME' },
       { 'TYPE': 'SALE', 'AMOUNT': '250', 'SALE': ' - ', 'PRODUCT DETAILS': 'CASE' }, // trims to '-'
     ])
-    expect(staff.UNASSIGNED.r).toBe(1750)
-    expect(staff.UNASSIGNED.s).toBe(3)
-    expect(staff.UNASSIGNED.t).toBe(1) // only the 1.67 row is a top-up
+    expect(staff.SUPPORT.r).toBe(1750)
+    expect(staff.SUPPORT.s).toBe(3)
+    expect(staff.SUPPORT.t).toBe(1) // only the 1.67 row is a top-up
+    expect(staff.UNASSIGNED).toBeUndefined()
     expect(staff['-']).toBeUndefined()
     expect(staff['N/A']).toBeUndefined()
-    expect(summary.revenue).toBe(1750)
+    expect(summary.revenue).toBe(1750) // revenue still counts in the store total
     expect(summary.salesCount).toBe(3)
   })
 
-  it("keeps blank SALE -> SUPPORT while '-'/'N/A' -> UNASSIGNED (separate buckets)", () => {
+  it("blank SALE and '-'/'N/A' share the one SUPPORT bucket", () => {
     const { staff } = processCSVData([
       { 'TYPE': 'SALE', 'AMOUNT': '100', 'SALE': '' },
       { 'TYPE': 'SALE', 'AMOUNT': '200', 'SALE': '-' },
+      { 'TYPE': 'SALE', 'AMOUNT': '400', 'SALE': 'N/A' },
     ])
-    expect(staff.SUPPORT.r).toBe(100)
-    expect(staff.UNASSIGNED.r).toBe(200)
+    expect(staff.SUPPORT.r).toBe(700)
+    expect(staff.UNASSIGNED).toBeUndefined()
   })
 
-  it("VOID row with SALE '-' credits the UNASSIGNED void count (also crashed pre-fix)", () => {
+  it("VOID row with SALE '-' credits the SUPPORT void count (also crashed pre-fix)", () => {
     const { summary, staff } = processCSVData([{ 'TYPE': 'VOID', 'AMOUNT': '-300', 'SALE': '-' }])
     expect(summary.voidCount).toBe(1)
     expect(summary.voidAmt).toBe(300)
-    expect(staff.UNASSIGNED.v).toBe(1)
-    expect(staff.UNASSIGNED.r).toBe(0)
+    expect(staff.SUPPORT.v).toBe(1)
+    expect(staff.SUPPORT.r).toBe(0)
+  })
+
+  // 'ซื้ออุปกรณ์เสริม' ("buy accessories") is a transaction description that
+  // leaks into the EYECHECK/EDGING/DISPENSING columns of real files. It is a
+  // non-staff value (EXCLUDED_NAMES) and must not be counted anywhere.
+  it("ignores 'ซื้ออุปกรณ์เสริม' in role columns (never becomes a staff member)", () => {
+    const { staff } = processCSVData([{
+      'TYPE': 'SALE', 'AMOUNT': '1000', 'SALE': 'AMM',
+      'EYECHECK': 'ซื้ออุปกรณ์เสริม', 'EDGING': 'ซื้ออุปกรณ์เสริม',
+      'CASHIER': 'AMM', 'DISPENSING': 'ซื้ออุปกรณ์เสริม',
+    }])
+    expect(staff['ซื้ออุปกรณ์เสริม']).toBeUndefined()
+    expect(staff.AMM.r).toBe(1000)
+    expect(staff.AMM.c).toBe(1) // AMM's real cashier credit is untouched
+  })
+
+  it("folds a 'ซื้ออุปกรณ์เสริม' SALE into SUPPORT (defensive — never occurs in real data)", () => {
+    const { staff } = processCSVData([{ 'TYPE': 'SALE', 'AMOUNT': '900', 'SALE': 'ซื้ออุปกรณ์เสริม' }])
+    expect(staff['ซื้ออุปกรณ์เสริม']).toBeUndefined()
+    expect(staff.SUPPORT.r).toBe(900)
   })
 })

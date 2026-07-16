@@ -112,11 +112,11 @@ const TYPE_COL_NAMES = ['TYPE', 'BILL TYPE', 'DOC TYPE', 'TYPE ']
 const TYPE_VALUES = ['VOID', 'void', ' Void ', 'SALE', 'sale', '', 'RETURN', 'N/A', 'EXCHANGE']
 const AMOUNTS = ['1234.56', '-500', '0', '', 'abc', '1e3', '  250 ', '99999999', '-0.01', '750', '1200.5', 'NaN']
 // NOTE: '-' and 'N/A' are deliberately NOT in the SALE pool. They are the ONE
-// input where the port INTENTIONALLY diverges from the original (the original
-// crashes; the port routes them to a visible UNASSIGNED bucket — real-data fix,
-// see constants.ts). That divergence is asserted explicitly below
-// ("diverges ON PURPOSE ..."). Keeping them out of the fuzz pool is what lets
-// the fuzz prove "byte-identical on every OTHER input".
+// SALE input where the port INTENTIONALLY diverges from the original (the
+// original crashes on `staff[saleName]`; the port folds them into SUPPORT —
+// real-data fix, see constants.ts EXCLUDED_NAMES). That divergence is asserted
+// explicitly below ("diverges ON PURPOSE ..."). Keeping them out of the fuzz
+// pool is what lets the fuzz prove "byte-identical on every OTHER input".
 const SALES = ['', ' ', 'TROY', 'troy', ' Buddh ', 'BUDD', 'Alice', 'BOB', 'น้องเอ', 'Support', 'SUPPORT', 'Carol', 'dave']
 const PRODUCT_TOKENS = [
   'EYESL X', '1.67 AS', '1.74 BLUE', 'RX-100', 'EN-T COAT', 'TS FILM', 'PRE-ORDER', 'COMPAL', 'MC2', 'COL1', 'MIRROR', 'PRES-T', 'SIGNATURE', 'ULTIMATE', 'GOLD RING',
@@ -245,8 +245,9 @@ describe('port === original (differential fuzz)', () => {
   // non-void row whose SALE is a '-'/'N/A' sentinel (its initStaff guard skips
   // creation, then `staff[saleName].r` dereferences undefined). A real export
   // file carries '-' in SALE for un-attributed sales, so the original app hangs
-  // on "Processing Data...". Our port instead routes the revenue into a visible
-  // UNASSIGNED bucket. This test pins BOTH sides of that deliberate difference.
+  // on "Processing Data...". Our port instead folds the row into SUPPORT — the
+  // same bucket a BLANK SALE uses — so the revenue still counts in the store
+  // total but no card is shown. This test pins BOTH sides of that difference.
   it.each(['-', 'N/A'])("diverges ON PURPOSE from the original's crash on SALE=%s", (sentinel) => {
     const rows = [{ TYPE: 'SALE', AMOUNT: '100', SALE: sentinel, 'PRODUCT DETAILS': 'PLAIN' }]
     const origRun = attempt(() => originalProcessCSVData(clone(rows)))
@@ -257,8 +258,10 @@ describe('port === original (differential fuzz)', () => {
     // ...but the port handles it gracefully — no throw, revenue preserved.
     expect(mineRun.ok, 'port must NOT crash — it handles the sentinel').toBe(true)
     if (mineRun.ok) {
-      expect(mineRun.value.staff.UNASSIGNED?.r).toBe(100)
-      expect(mineRun.value.staff.UNASSIGNED?.s).toBe(1)
+      // Folded into SUPPORT (like a blank SALE); no invented UNASSIGNED bucket.
+      expect(mineRun.value.staff.SUPPORT?.r).toBe(100)
+      expect(mineRun.value.staff.SUPPORT?.s).toBe(1)
+      expect(mineRun.value.staff.UNASSIGNED).toBeUndefined()
       expect(mineRun.value.summary.revenue).toBe(100)
     }
   })

@@ -75,7 +75,24 @@
         /* PDF LOCK SETTINGS */
         body.exporting-mode { width: 1440px !important; min-width: 1440px !important; max-width: 1440px !important; margin: 0 auto !important; background-color: #0B0E14 !important; overflow: visible !important; }
         body.exporting-mode #export-page-1, body.exporting-mode #export-page-2 { width: 1440px !important; min-width: 1440px !important; padding: 40px !important; background-color: #0B0E14 !important; }
-        body.exporting-mode .grid-summary { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 2rem !important; }
-        body.exporting-mode .grid-charts { display: grid !important; grid-template-columns: 1fr !important; gap: 2rem !important; }
-        body.exporting-mode .grid-staff { display: grid !important; grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 2rem !important; }
+        /* html2canvas-pro renders CSS `grid` as a single stacked column, so the
+           export reproduces the on-screen column layout with flexbox instead —
+           which it DOES honour. These rules only apply during a PDF capture
+           (the `exporting-mode` class is added/removed around html2canvas), so
+           the live dashboard keeps using real CSS grid. */
+        body.exporting-mode .grid-summary { display: flex !important; flex-direction: row !important; gap: 2rem !important; }
+        body.exporting-mode .grid-summary > * { flex: 1 1 0 !important; min-width: 0 !important; }
+        body.exporting-mode .grid-charts { display: flex !important; flex-direction: column !important; gap: 2rem !important; }
+        body.exporting-mode .grid-staff { display: flex !important; flex-direction: row !important; flex-wrap: wrap !important; gap: 2rem !important; }
+        body.exporting-mode .grid-staff > * { flex: 0 0 calc((100% - 6rem) / 4) !important; min-width: 0 !important; }
         body.exporting-mode .card-dark { transform: none !important; box-shadow: none !important; animation: none !important; opacity: 1 !important; border-color: #374151 !important; transition: none !important; }
+
+        /* Tailwind v4 emits its NAMED palette (text-gray-*) as oklch(), which
+           html2canvas-pro cannot render and falls back to black — the reason
+           the exported PDF's labels came out invisible on the dark background
+           (the original app used Tailwind v3's rgb() output and never hit this).
+           Pin the three grays this dashboard actually uses to their exact sRGB
+           values for the capture. Unlayered, so it wins over Tailwind's @layer. */
+        body.exporting-mode .text-gray-300 { color: rgb(209, 213, 220) !important; }
+        body.exporting-mode .text-gray-400 { color: rgb(153, 161, 175) !important; }
+        body.exporting-mode .text-gray-500 { color: rgb(106, 114, 130) !important; }

@@ -82,35 +82,4 @@ describe('deriveDashboard', () => {
     expect(truncateText('x'.repeat(28), 28)).toBe('x'.repeat(28))
     expect(truncateText('', 28)).toBe('')
   })
-
-  // --- UNASSIGNED bucket (SALE '-'/'N/A', see constants.ts): a VISIBLE card,
-  // but not a person — so it is excluded from the salesperson-only badges.
-  it("shows the UNASSIGNED bucket as a card labelled 'Unassigned Sales'", () => {
-    const d = deriveDashboard(mk({ staff: { UNASSIGNED: s({ r: 500 }), ANNA: s({ r: 300 }) } }))
-    const un = d.cards.find(c => c.name === 'UNASSIGNED')
-    expect(un).toBeDefined()
-    expect(un!.role).toBe('Unassigned Sales')
-  })
-
-  it('never awards 👑 highest-sale to UNASSIGNED even when it has the top revenue', () => {
-    const d = deriveDashboard(mk({ staff: { UNASSIGNED: s({ r: 900 }), ANNA: s({ r: 300 }) } }))
-    expect(d.cards[0].name).toBe('UNASSIGNED') // it still sorts by revenue
-    expect(d.cards.find(c => c.name === 'UNASSIGNED')!.badges.highestSale).toBe(false)
-    expect(d.cards.every(c => !c.badges.highestSale)).toBe(true)
-  })
-
-  it('excludes UNASSIGNED from the 💎 top-up baseline so a real staffer still wins', () => {
-    const d = deriveDashboard(mk({ staff: {
-      UNASSIGNED: s({ r: 900, s: 2, t: 2 }), // tr 100 — highest, but must NOT set the bar
-      ANNA: s({ r: 300, s: 4, t: 2 }),        // tr 50 — top among real staff
-      BOB: s({ r: 200, s: 4, t: 1 }),         // tr 25
-    }}))
-    expect(d.cards.find(c => c.name === 'UNASSIGNED')!.badges.topUpMaster).toBe(false)
-    expect(d.cards.find(c => c.name === 'ANNA')!.badges.topUpMaster).toBe(true)
-  })
-
-  it('still reports the UNASSIGNED void count factually', () => {
-    const d = deriveDashboard(mk({ staff: { UNASSIGNED: s({ r: 100, v: 2 }) } }))
-    expect(d.cards.find(c => c.name === 'UNASSIGNED')!.badges.voids).toBe(2)
-  })
 })
