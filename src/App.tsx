@@ -9,6 +9,7 @@ import SummaryCards from './components/SummaryCards'
 import SalesTopupChart, { type SalesTopupChartHandle } from './components/SalesTopupChart'
 import WorkloadChart, { type WorkloadChartHandle } from './components/WorkloadChart'
 import StaffCard from './components/StaffCard'
+import { exportDashboardPdf } from './features/exportPdf'
 
 type Status = 'empty' | 'loading' | 'ready'
 
@@ -23,6 +24,14 @@ function App() {
   // (Task 7); unused otherwise in this task.
   const mixedChartRef = useRef<SalesTopupChartHandle | null>(null)
   const workloadChartRef = useRef<WorkloadChartHandle | null>(null)
+
+  // DOM refs consumed only by the imperative PDF export flow (Task 7) — the
+  // export handler mutates these nodes directly via refs/getElementById,
+  // never via setState, so a React re-render mid-export can't clobber the
+  // DOM state html2canvas is about to capture (SPEC §9).
+  const exportPage1Ref = useRef<HTMLDivElement | null>(null)
+  const exportPage2Ref = useRef<HTMLDivElement | null>(null)
+  const exportButtonRef = useRef<HTMLButtonElement | null>(null)
 
   // Memoized so re-renders triggered by state unrelated to `data` don't
   // re-run the O(staff) derivation (SPEC §7/§11 "deferred-memoization intent").
@@ -55,6 +64,27 @@ function App() {
     })
   }
 
+  // Port of the btn-export-pdf 'click' handler (reference/original-dashboard.html
+  // lines 444-536). React's only role here is reading the current refs/state
+  // and handing them to the imperative export flow — see exportPdf.ts.
+  const handleExportClick = () => {
+    const page1 = exportPage1Ref.current
+    const page2 = exportPage2Ref.current
+    const button = exportButtonRef.current
+    if (!page1 || !page2 || !button) return
+
+    void exportDashboardPdf({
+      page1,
+      page2,
+      button,
+      storeTitle,
+      charts: [
+        { instance: mixedChartRef.current, tempImgId: 'tempMixedImg' },
+        { instance: workloadChartRef.current, tempImgId: 'tempWorkloadImg' },
+      ],
+    })
+  }
+
   return (
     <div className="bg-[#0B0E14]" id="main-body">
       <div id="export-screen" className="export-overlay">
@@ -63,7 +93,7 @@ function App() {
       </div>
 
       <div className="max-w-[1440px] mx-auto pb-20" id="main-container">
-        <div id="export-page-1" className="p-6 md:p-10 bg-[#0B0E14]">
+        <div id="export-page-1" ref={exportPage1Ref} className="p-6 md:p-10 bg-[#0B0E14]">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-[#12141A] p-6 md:p-8 rounded-3xl border border-[#232630] mb-8 gap-6">
             <div>
               <h1 className="text-3xl md:text-4xl font-black tracking-tight text-white uppercase">
@@ -79,8 +109,10 @@ function App() {
               </label>
               <button
                 id="btn-export-pdf"
+                ref={exportButtonRef}
                 className="btn-danger"
                 style={{ display: status === 'ready' ? 'inline-flex' : 'none' }}
+                onClick={handleExportClick}
               >
                 <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
                 Export PDF
@@ -122,7 +154,7 @@ function App() {
         </div>
 
         {status === 'ready' && dashboard ? (
-          <div id="export-page-2" className="p-6 md:p-10 bg-[#0B0E14]">
+          <div id="export-page-2" ref={exportPage2Ref} className="p-6 md:p-10 bg-[#0B0E14]">
             <div className="flex items-center gap-4 mb-8 px-2">
               <div className="h-8 w-1.5 bg-[#3B82F6] rounded-full shadow-[0_0_10px_#3B82F6]"></div>
               <h2 className="text-2xl font-black text-white tracking-tight">Individual Performance</h2>
